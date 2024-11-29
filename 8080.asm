@@ -310,6 +310,10 @@ OPTAB:  .DB      'A'             ;COMMAND
         .DB      'G'             ;COMMAND
         .DW      GOTO            ;TO GOTO MEMORY LOCATION (BRKPT OPTION)
         .DW      M28
+;
+        .DB      'H'             ;COMMAND
+        .DW      HELP            ;DISPLAY HELP MESSAGE
+        .DW      M70        
 ; 
         .DB      'J'             ;COMMAND
         .DW      JUMP            ;TO JUMP TO MEMORY LOCATION
@@ -343,8 +347,8 @@ OPTAB:  .DB      'A'             ;COMMAND
         .DW      ZAP             ;TO ZAP (ZERO) A BLOCK OF MEMORY
         .DW      M13
 ; 
-        .DB      'X'			;COMMAND
-	   .DW      QUIT            ;EXIT PROGRAM
+        .DB      'X'		 ;COMMAND
+	.DW      QUIT            ;EXIT PROGRAM
         .DW      M0
 ;
         .DB      0FFH            ;END OF TABLE CODE
@@ -2210,6 +2214,12 @@ GO4:    MVI     A,0C3H          ;SET JUMP ADDRESS AT RESTART
         LXI     H,8H
         DAD     SP
         PCHL                    ;BRANCH TO ENTRANCE TEMPLATE
+
+HELP:
+        LXI     H,M71            ;TYPE ENTRY
+        CALL    MSG              ;MESSAGE
+        JMP     RESET
+
 ;
 ;*********************************************************
 ;*                                                       *
@@ -3346,24 +3356,24 @@ M66:    .DB      "EGISTER",' '+80H
 M67:    .DB      'O','F'+80H
 M68:    .DB      "XAMINE/MODIFY",' '+80H
 M69:    .DB      "ISPLA",'Y'+80H
-;M70:    .DB      "EL",'P'+80H
-;M71:    .DB      CR,LF,"ADDRESS XXXX"
-;        .DB      CR,LF,"DUMP HEX XXXX YYYY"
-;        .DB      CR,LF,"DUMP SYMBOLIC XXXX YYYY"
-;        .DB      CR,LF,"FILL XXXX YYYY ZZ"
-;        .DB      CR,LF,"JUMP XXXX"
-;        .DB      CR,LF,"LOAD HEX XXXX"
-;        .DB      CR,LF,"LOAD SYMBOLIC XXXX"
-;        .DB      CR,LF,"MOVE XXXX YYYY ZZZZ"
-;        .DB      CR,LF,"TEST XXXX YYYY"
-;        .DB      CR,LF,"PUNCH EOF"
-;        .DB      CR,LF,"PUNCH NULLS"
-;        .DB      CR,LF,"PUNCH HEX XXXX YYYY"
-;        .DB      CR,LF,"REGISTER DISPLAY"
-;        .DB      CR,LF,"REGISTER MODIFY X"
-;        .DB      CR,LF,"VERIFY HEX XXXX YYYY ZZ"
-;        .DB      CR,LF,"VERIFY SYMBOLIC XXXX YYYY ZZ"
-;        .DB      CR,LF,"ZAP XXXX YYY",'Y'+80H
+M70:    .DB      "EL",'P'+80H
+M71:    .DB      CR,LF,"ADDRESS XXXX"
+        .DB      CR,LF,"DUMP HEX XXXX YYYY"
+        .DB      CR,LF,"DUMP SYMBOLIC XXXX YYYY"
+        .DB      CR,LF,"FILL XXXX YYYY ZZ"
+        .DB      CR,LF,"JUMP XXXX"
+        .DB      CR,LF,"LOAD HEX XXXX"
+        .DB      CR,LF,"LOAD SYMBOLIC XXXX"
+        .DB      CR,LF,"MOVE XXXX YYYY ZZZZ"
+        .DB      CR,LF,"TEST XXXX YYYY"
+        .DB      CR,LF,"PUNCH EOF"
+        .DB      CR,LF,"PUNCH NULLS"
+        .DB      CR,LF,"PUNCH HEX XXXX YYYY"
+        .DB      CR,LF,"REGISTER DISPLAY"
+        .DB      CR,LF,"REGISTER MODIFY X"
+        .DB      CR,LF,"VERIFY HEX XXXX YYYY ZZ"
+        .DB      CR,LF,"VERIFY SYMBOLIC XXXX YYYY ZZ"
+        .DB      CR,LF,"ZAP XXXX YYY",'Y'+80H
 ;
 PSWMG:  .DB      "PS",'W'+80H
 ;
