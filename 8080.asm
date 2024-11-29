@@ -26,7 +26,7 @@
 ;*    ROM 1000H - 17FFH  unused                          *
 ;*    ROM 1800H - 1FFFH  unused                          *
 ;*												         *
-;*    RAM B000H - BFFFH                                  *
+;*    RAM F000H - FFFFH                                  *
 ;*                                                       *
 ;*********************************************************
 ;*********************************************************
@@ -35,7 +35,7 @@
 ;*                                                       *
 ;*********************************************************
 ;
-CORE    .EQU     0BFFFH          ;TOP OF UTILITY RAM
+CORE    .EQU     0FFFFH          ;TOP OF UTILITY RAM
 ROM     .EQU     0000H           ;START OF ROM
 ;
 PCLOC   .EQU     CORE-2          ;
@@ -255,7 +255,7 @@ NXT1:   CALL    CHIN            ;GET COMMAND CHAR
 ;
         LXI     H,OPTAB         ;FETCH TABLE VECTOR
 SRCH5:  MOV     A,M             ;GET TABLE COMMAND BYTE
-        CPI     377Q            ;CHECK FOR END OF TABLE
+        CPI     0FFH            ;CHECK FOR END OF TABLE
         JZ      ILLEG           ;MUST BE ILLEGAL INPUT
         CMP     B               ;COMPAIR TO INPUT
         JZ      FND5            ;FOUND COMMAND
@@ -347,7 +347,7 @@ OPTAB:  .DB      'A'             ;COMMAND
 	   .DW      QUIT            ;EXIT PROGRAM
         .DW      M0
 ;
-        .DB      377Q            ;END OF TABLE CODE
+        .DB      0FFH            ;END OF TABLE CODE
 ;
 ;*************************************************
 ;*                                               *
@@ -379,7 +379,7 @@ DTAB:   .DB      'H'             ;COMMAND TO
         .DB      'S'             ;COMMAND TO
         .DW      DMPSYM          ;DUMP SYMBOLIC
         .DW      M38             ;MSG POINTER
-        .DB      377Q            ;END OF TABLE INDICATOR
+        .DB      0FFH            ;END OF TABLE INDICATOR
 ;*********************************
 ;
 ; THE 'L' COMMAND COMES HERE TO READ A SECOND CHARACTER
@@ -400,7 +400,7 @@ LTAB:   .DB      'H'             ;COMMAND TO READ
         .DB      'S'             ;COMMAND TO
         .DW      LOSYM           ;LOAD SYMBOLIC
         .DW      M38             ;MSG POINTER
-        .DB      377Q            ;END OF TABLE
+        .DB      0FFH            ;END OF TABLE
 ;*********************************
 ;
 ; THE 'P' COMMAND COMES HERE TO READ A SECOND CHARACTER
@@ -424,7 +424,7 @@ PTAB:   .DB      'H'             ;COMMAND TO PUNCH
         .DB      'N'             ;COMMAND TO PUNCH NULLS
         .DW      NULLS           ;PUNCH COMMAND
         .DW      M64             ;MSG POINTER
-        .DB      377Q            ;END OF TABLE
+        .DB      0FFH            ;END OF TABLE
 ;*********************************
 ;
 ; THE 'R' COMMAND COMES HERE TO READ A SECOND CHARACTER
@@ -443,7 +443,7 @@ RTAB:   .DB      'M'             ;EXAMINE/MODIFY
         .DB      'D'             ;DISPLAY
         .DW      REGX
         .DW      M69
-        .DB      377Q            ;END OF TABLE
+        .DB      0FFH            ;END OF TABLE
 ;*********************************
 ;
 ; THE 'V' COMMAND COMES HERE TO READ A SECOND CHARACTER
@@ -466,7 +466,7 @@ VTAB:   .DB      'H'             ;COMMAND TO
         .DB      'S'             ;COMMAND TO
         .DW      VERIFS          ;VERIFY SYMBOLIC
         .DW      M38             ;MSG POINTER
-        .DB      377Q            ;END OF TABLE INDICATOR
+        .DB      0FFH            ;END OF TABLE INDICATOR
 ;
 ;*********************************************************
 ;*********************************************************
@@ -494,7 +494,7 @@ VTAB:   .DB      'H'             ;COMMAND TO
 ;*                                                       *
 ;*********************************************************
 ;
-CHIN:   MVI     A,377Q          ;SET ECHO
+CHIN:   MVI     A,0FFH          ;SET ECHO
         STA     ECHO            ;FLAG ON
 CHIN1:  CALL    ASCIN           ;GET CHARACTER & STRIP PARITY
         PUSH    PSW             ;SAVE DATA
@@ -545,7 +545,7 @@ CRLFMG: CALL    CRLF            ;TURN UP A NEW LINE
 MSG:    PUSH    PSW             ;SAVE PSW
         PUSH    H               ;SAVE HL
 MNXT:   MOV     A,M             ;GET A CHARACTER
-        CPI     377Q            ;CHECK FOR 377Q/0FFH/-1 EOM
+        CPI     0FFH            ;CHECK FOR 377Q/0FFH/-1 EOM
         JZ      MDONE           ;DONE IF OFFH EOM FOUND
         ORA     A               ;TO CHECK FOR ZERO TERMINATOR
         JZ      MDONE           ;DONE IF ZERO EOM FOUND
@@ -1878,7 +1878,7 @@ EXGCMD: CALL    MSKIHL          ;
 ;
 TMAT3:  CALL    MSKIHL          ;
 RSTEST: MOV     A,M             ;
-        CPI     377Q            ;
+        CPI     0FFH            ;
         JNZ     LDCX1           ;
         CALL    INPWD           ;INPUT A HEX WORD
         MOV     A,L             ;
@@ -3150,11 +3150,11 @@ CLOC    .EQU     2
 DLOC    .EQU     1
 ELOC    .EQU     0
 FLOC    .EQU     4
-HLOC    .EQU     HLX-EXITC+11Q
-LLOC    .EQU     HLX-EXITC+10Q
-PLOC    .EQU     PCX-EXITC+11Q
+HLOC    .EQU     HLX-EXITC+09H
+LLOC    .EQU     HLX-EXITC+08H
+PLOC    .EQU     PCX-EXITC+09H
 SLOC    .EQU     7
-TLOC    .EQU     T1A-EXITC+10Q
+TLOC    .EQU     T1A-EXITC+08H
 ;
 ; TABLE FOR ACCESSING REGISTERS
 ;
@@ -3170,7 +3170,7 @@ ACTBL:
         .DB      'M',HLOC,2
         .DB      'P',PLOC,2
         .DB      'S',SLOC,2
-        .DB      377Q
+        .DB      0FFH
 ;
 ; ASSEM/DISSEM LOOK-UP TABLES
 ;
