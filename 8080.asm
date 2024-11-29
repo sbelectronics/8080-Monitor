@@ -232,6 +232,7 @@ NEXT:   LXI     SP,STACK        ;RESTORE STACK POINTER
         MVI     A,'>'           ;GET OTHER HALF
         CALL    CHRSPC          ;TYPE IT AND A SPACE
 NXT1:   CALL    CHIN            ;GET COMMAND CHAR
+        CALL    TOUPPER
         MOV     B,A             ;AND SAVE COMMAND
         
 ;
@@ -372,6 +373,7 @@ OPTAB:  .DB      'A'             ;COMMAND
 DUMPER: CALL    SPACE           ;SPACE OVER ONE
         LXI     H,DTAB          ;POINT TO DUMP OPTION TABLE
 DUMPDA: CALL    CHIN            ;GET SECOND COMMAND CHAR
+        CALL    TOUPPER
         MOV     B,A             ;SAVE COMMAND IN B
         JMP     SRCH5           ;SEARCH TABLE FOR COMMAND
 ;
@@ -742,6 +744,7 @@ THXW:   PUSH    PSW             ;SAVE PSW
 ;*********************************************************
 ;
 GHXN:   CALL    CHIN1           ;GET CHARACTER IN
+        CALL    TOUPPER
                                 ;(CHIN1 IN CASE NO ECHO)
         CPI     '0'             ;RETURN IF
         RC                      ; < '0'
@@ -1185,6 +1188,7 @@ OKHUH:  PUSH    PSW             ;SAVE PSW
         CALL    MSG             ;PRINT IT
         LXI     H,M8            ;POSSIBLE ABORT
         CALL    CHIN            ;GET ANSWER
+        CALL    TOUPPER
         CPI     'Y'             ; 'Y' ?
         JNZ     ILLEG1          ;NO, GO ABORT
         POP     H               ;RESTORE HL
@@ -2769,6 +2773,7 @@ REGX:   CALL    DSPREG
 ;
 MODREG: LXI     H,ACTBL         ;POINT TO START OF TABLE
         CALL    PCHK            ;INPUT CHARACTER
+        CALL    TOUPPER
         JC      ERRORE          ;CAN'T BE CR
 X0:     CMP     M               ;CHECK AGAINST TABLE
         JZ      X1              ;JUMP IF A MATCH
@@ -2969,6 +2974,15 @@ RST5:   INX     H
         JMP     TRCON1          ;CONTINUE ELSEWHERE
 ;
 QUIT:   JMP     0000			;EXIT TO CP/M
+
+TOUPPER:
+        ; if the character in A is lower case, convert it to upper case
+        CPI     'a'             ; check if character is lower case
+        RC                      ; if less than 'a', return
+        CPI     'z'+1           ; check if character is greater than 'z'
+        RNC                     ; if greater than 'z', return
+        SUI     'a'-'A'         ; convert to upper case
+        RET
 
 ;*********************************************************
 ;*                                                       *
@@ -3361,6 +3375,7 @@ M71:    .DB      CR,LF,"ADDRESS XXXX"
         .DB      CR,LF,"DUMP HEX XXXX YYYY"
         .DB      CR,LF,"DUMP SYMBOLIC XXXX YYYY"
         .DB      CR,LF,"FILL XXXX YYYY ZZ"
+        .DB      CR,LF,"HELP"        
         .DB      CR,LF,"JUMP XXXX"
         .DB      CR,LF,"LOAD HEX XXXX"
         .DB      CR,LF,"LOAD SYMBOLIC XXXX"
