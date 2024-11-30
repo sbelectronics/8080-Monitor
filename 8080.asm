@@ -41,6 +41,10 @@ ROM     .EQU     0000H           ;START OF ROM
 PCLOC   .EQU     CORE-2          ;
 STACK   .EQU     CORE-28         ;(CORE-1CH) STACK LOCATION
 RAM     .EQU     STACK-256D      ;REQUIRES 256 BYTES OF RAM
+
+BASROM  .EQU     02000H          ;ADDRESS OF BASIC ROM
+FTHROM  .EQU     04000H          ;ADDRESS OF FORTH ROM
+BOTRAM  .EQU     0E000H          ;BOTTOM OF RAM
 ;
 ;*********************************************************
 ;*                                                       *
@@ -148,6 +152,7 @@ RSTUST 	.EQU 		040H		;USART MODE RESET COMMAND
         JMP     OPMEBY          ;ROUTINE TO OUTPUT MEMORY BYTE
         JMP     PU2             ;
         JMP     HILOEX          ;
+        JMP     OUT1            ; output character in A
 ;
 ;
 ;*********************************************************
@@ -300,6 +305,11 @@ OPTAB:  .DB      'A'             ;COMMAND
         .DW      GETAD           ;TO GET ADDRESS
         .DW      M32
 ;
+        .DB      'B'             ;COMMAND
+        .DW      BASIC           ;LAUNCH BASIC
+        .DW      M72
+;
+;
         .DB      'D'             ;COMMAND
         .DW      DUMPER          ;TO DUMP MEMORY 
         .DW      M27
@@ -339,6 +349,10 @@ OPTAB:  .DB      'A'             ;COMMAND
         .DB      'T'             ;COMMAND
         .DW      TEST2           ;TO TEST MEMORY
         .DW      M31
+;
+        .DB      'U'             ;COMMAND
+        .DW      FORTH           ;TO TEST MEMORY
+        .DW      M73
 ;
         .DB      'V'             ;COMMAND
         .DW      VERIFY          ;TO VERIFY BYTE LOCATION
@@ -2224,6 +2238,27 @@ HELP:
         CALL    MSG              ;MESSAGE
         JMP     RESET
 
+; Run BASIC from ROM #1 (02000)
+
+BASIC:
+        JMP     BASROM           ; JUMP TO ROM 2
+
+; Run forth from ROM #2 (0x4000)
+; We copy forth from ROM at 4000 to RAM at E000 and then run it
+
+FORTH:  LXI     H, FTHROM
+        LXI     D, BOTRAM
+        LXI     B, 1E80H
+CPFTH:  MOV     A,M
+        STAX    D
+        INX     H
+        INX     D
+        DCX     B
+        MOV     A,B             ; are we done yet?
+        ORA     C
+        JNZ     CPFTH
+        JMP     BOTRAM
+
 ;
 ;*********************************************************
 ;*                                                       *
@@ -3129,17 +3164,17 @@ TYPE2:  POP     PSW             ;RESTORE A AND FLAGS
 ;*  use:  MOV	A,character                              *
 ;*        CALL	OUT1                                     *
 ;*********************************************************
-OUT1:		PUSH    B		;save BC
-            PUSH    PSW
-			MOV     C,A
-COUT: 		IN 		CONST	;GET STATUS OF CONSOLE 
-            ANI 	TRDY	;SEE IF TRANSMITTER READY 
-		  	JZ  	COUT	;NO - WAIT till ready
-			MOV 	A,C		;move CHARACTER TO A REG 
-			OUT 	CNOUT	;SEND Character TO CONSOLE 
-			POP     PSW
-			POP     B       ;restore BC
-			RET
+OUT1:	PUSH    B		;save BC
+        PUSH    PSW
+	MOV     C,A
+COUT: 	IN 	CONST	        ;GET STATUS OF CONSOLE 
+        ANI 	TRDY	        ;SEE IF TRANSMITTER READY 
+	JZ  	COUT	        ;NO - WAIT till ready
+	MOV 	A,C		;move CHARACTER TO A REG 
+	OUT 	CNOUT	        ;SEND Character TO CONSOLE 
+	POP     PSW
+	POP     B               ;restore BC
+	RET
 			
 ;
 ; EXIT CODE TEMPLATE
@@ -3372,6 +3407,7 @@ M68:    .DB      "XAMINE/MODIFY",' '+80H
 M69:    .DB      "ISPLA",'Y'+80H
 M70:    .DB      "EL",'P'+80H
 M71:    .DB      CR,LF,"ADDRESS XXXX"
+        .DB      CR,LF,"BASIC"
         .DB      CR,LF,"DUMP HEX XXXX YYYY"
         .DB      CR,LF,"DUMP SYMBOLIC XXXX YYYY"
         .DB      CR,LF,"FILL XXXX YYYY ZZ"
@@ -3386,9 +3422,12 @@ M71:    .DB      CR,LF,"ADDRESS XXXX"
         .DB      CR,LF,"PUNCH HEX XXXX YYYY"
         .DB      CR,LF,"REGISTER DISPLAY"
         .DB      CR,LF,"REGISTER MODIFY X"
+        .DB      CR,LF,"U-FORTH"     
         .DB      CR,LF,"VERIFY HEX XXXX YYYY ZZ"
         .DB      CR,LF,"VERIFY SYMBOLIC XXXX YYYY ZZ"
         .DB      CR,LF,"ZAP XXXX YYY",'Y'+80H
+M72:    .DB      "ASI",'C'+80H
+M73:    .DB      "-FORT",'H'+80H
 ;
 PSWMG:  .DB      "PS",'W'+80H
 ;
