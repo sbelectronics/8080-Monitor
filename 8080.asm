@@ -324,7 +324,11 @@ OPTAB:  .DB      'A'             ;COMMAND
 ;
         .DB      'H'             ;COMMAND
         .DW      HELP            ;DISPLAY HELP MESSAGE
-        .DW      M70        
+        .DW      M70  
+;
+        .DB      'I'             ;COMMAND
+        .DW      PIN             ;INPUT PORT
+        .DW      M79
 ; 
         .DB      'J'             ;COMMAND
         .DW      JUMP            ;TO JUMP TO MEMORY LOCATION
@@ -337,6 +341,14 @@ OPTAB:  .DB      'A'             ;COMMAND
         .DB      'M'             ;COMMAND
         .DW      MOVE            ;TO MOVE AREA OF MEMORY
         .DW      M29
+;
+        .DB      'N'             ;COMMAND
+        .DW      BURN1           ;BURN-IN TEST
+        .DW      M75
+;
+        .DB      'O'             ;COMMAND
+        .DW      POUT            ;OUT PORT
+        .DW      M78
 ;
         .DB      'P'             ;COMMAND
         .DW      PCMD            ;TO PUNCH INTEL HEX TAPE
@@ -1772,6 +1784,34 @@ TSTEXT: LDA     ERRFL           ;GET ERROR FLAG
         LXI     H,M10           ;GET PERFECT TEST MSG
         CALL    MSG             ;SEND IT
         JMP     NEXT            ;RETURN TO USER
+
+; Burn in test
+; runs continuously
+BURN1:
+BURN2:  XRA     A               ;WANT HL=BEG, DE=END
+        STA     ERRFL           ;ERROR INDICATOR FLAG
+        CALL    PARAM           ;GET PARAMETERS
+        CALL    OKHUH           ;GET THE GO AHEAD
+BURN20: PUSH    D
+        PUSH    H
+BURN21: MVI     B,0FFH          ;INIT. TEST PATTERN
+BURN22: MOV     M,B             ;WRITE THE PATTERN
+        MOV     A,M             ;READ IT BACK
+        CMP     B               ;COMPAIR WITH ORIGINAL
+        CNZ     TSTERR          ;IF ERROR, GO DISPLAY IT
+        ;;;CALL    CHECK           ;SEE IF WE HAVE INTERUPT
+        DCR     B               ;DECREMENT PATTERN
+        MOV     A,B             ;FOR END OF PATTERN CHECK
+        CPI     0FFH            ;THRU THIS LOCATION ?
+        JNZ     BURN22          ;LOOP BACK IF NOT DONE
+        CALL    HILOW           ;INC HL/SEE IF TEST DONE
+        JNC     BURN21          ;BRANCH IF NOT DONE
+        LXI     H,M74           ;TYPE ERROR
+        CALL    CRLFMG          ; MESSAGE
+        POP     H               ;Restore HL and DE,
+        POP     D               ;the start and stop addrs        
+        JMP     BURN20          ;Run forever
+
 ;
 ;*********************************************************
 ;*                                                       *
@@ -2778,6 +2818,40 @@ VFB1:   MOV     A,M             ;READ A BYTE
         CALL    STHXW           ;SPACE VICE CRLF TO SAVE PAPER...THEN TYPE ADDRESS
 VFB2:   CALL    HILOEX          ;INCR PNTR & CHECK IF DONE
         JMP     VFB1            ;KEEP SEARCHING IF NOT DONE
+
+;*********************************************************
+; Port Out
+
+POUT:   MVI     A,0D3H          ;Out instruction
+        STA     TR0
+        LXI     H,M76
+        CALL    MSG             ;Print "PORT:"
+        CALL    SPCBY           ;Get dest port number
+        STA     TR1
+        MVI     A,0C9H          ;Ret instruction
+        STA     TR2
+        LXI     H,M77
+        CALL    MSG             ;Print "VALUE:"
+        CALL    SPCBY           ;Get value
+        CALL    TR0             ;Call the trampoline
+        CALL    CRLF
+        JMP     RESET
+
+PIN:    MVI     A,0DBH          ;In instruction
+        STA     TR0
+        LXI     H,M76
+        CALL    MSG             ;Print "PORT:"
+        CALL    SPCBY           ;Get dest port number
+        STA     TR1
+        MVI     A,0C9H          ;Ret instruction
+        STA     TR2
+        LXI     H,M77
+        CALL    TR0             ;Call the trampoline
+        CALL    CRLF
+        CALL    THXB            ;Print hex value
+        CALL    CRLF
+        JMP     RESET
+
 ;
 ;*********************************************************
 ;*                                                       *
@@ -3042,7 +3116,7 @@ GETCH:  PUSH   H				;SAVE REGISTERS
 CIN	IN 	CONST		;GET STATUS OF CONSOLE 
 	ANI 	RRDY		;CHECK FOR RECEIVER BUFFER READY 
 	JZ 	CIN		;WAIT till recieved 
-	IN      CNI		;GET CHARACTER 
+	IN      CNIN		;GET CHARACTER 
         POP    B                ;RESTORE REGISTERS
         POP    D
         POP    H
@@ -3428,6 +3502,12 @@ M71:    .DB      CR,LF,"ADDRESS XXXX"
         .DB      CR,LF,"ZAP XXXX YYY",'Y'+80H
 M72:    .DB      "ASI",'C'+80H
 M73:    .DB      "-FORT",'H'+80H
+M74:    .DB      "NEXT TEST PAS",'S'+80H
+M75:    .DB      "-BURN TES",'T'+80H
+M76:    .DB      " POR",'T'+80H
+M77:    .DB      " VALU",'E'+80H
+M78:    .DB      "U",'T'+80H
+M79:    .DB      'N'+80H
 ;
 PSWMG:  .DB      "PS",'W'+80H
 ;
@@ -3439,6 +3519,10 @@ ENDROM  .EQU     $                       ;BOUNDRY MARKER
 ;
 ; SYSTEM RAM AREA
 ;
+TR0:    .DS      1               ;TRAMPOLINE - OUT/IN INSTR
+TR1:    .DS      1               ;TRAMPOLINE - VALUE
+TR2:    .DS      1               ;TRAMPOLINE - RET INSTR
+
 TMPA:   .DS      1               ;TEMP STORAGE LOCATION
 ECHO:   .DS      1               ;CHIN ECHO FLAG, <>0=ECHO
                                  ; =0 = NO ECHO
