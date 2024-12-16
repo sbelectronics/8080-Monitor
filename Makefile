@@ -12,8 +12,6 @@ all: 8080.rom basic.rom forth.rom
 8080.rom: 8080.asm
 	$(ZASM) -u -b --8080 --asm8080 8080.asm
 	dd if=8080.rom of=00-8080.rom bs=1 count=8192
-	# there is no second ROM...
-	#dd if=8080.rom of=01-8080.rom bs=1 skip=8192
 
 basic.rom: nascom32k.asm
 	echo "nascom32k.asm" > nascom32k.lst

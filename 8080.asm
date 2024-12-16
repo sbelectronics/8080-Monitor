@@ -44,6 +44,7 @@ RAM     .EQU     STACK-256D      ;REQUIRES 256 BYTES OF RAM
 
 BASROM  .EQU     02000H          ;ADDRESS OF BASIC ROM
 FTHROM  .EQU     04000H          ;ADDRESS OF FORTH ROM
+ISROM   .EQU     06000H          ;ADDRESS OF ISIS ROM
 BOTRAM  .EQU     0E000H          ;BOTTOM OF RAM
 ;
 ;*********************************************************
@@ -314,6 +315,10 @@ OPTAB:  .DB      'A'             ;COMMAND
         .DW      DUMPER          ;TO DUMP MEMORY 
         .DW      M27
 ;
+        .DB      'E'             ;COMMAND
+        .DW      DECHO           ;TO DECHO ON IOC
+        .DW      M80
+;
         .DB      'F'             ;COMMAND
         .DW      FILL            ;TO FILL MEMORY
         .DW      M30
@@ -357,6 +362,10 @@ OPTAB:  .DB      'A'             ;COMMAND
         .DB      'R'             ;COMMAND
         .DW      RCMD            ;TO EXAMINE/MODIFY/DISPLAY REGISTERS
         .DW      M66
+;
+        .DB      'S'             ;COMMAND
+        .DW      ISIS            ;TO EXAMINE/MODIFY/DISPLAY REGISTERS
+        .DW      M81       
 ;
         .DB      'T'             ;COMMAND
         .DW      TEST2           ;TO TEST MEMORY
@@ -1807,7 +1816,7 @@ BURN22: MOV     M,B             ;WRITE THE PATTERN
         CALL    HILOW           ;INC HL/SEE IF TEST DONE
         JNC     BURN21          ;BRANCH IF NOT DONE
         LXI     H,M74           ;TYPE ERROR
-        CALL    CRLFMG          ; MESSAGE
+        CALL    MSG             ; MESSAGE
         POP     H               ;Restore HL and DE,
         POP     D               ;the start and stop addrs        
         JMP     BURN20          ;Run forever
@@ -2298,6 +2307,46 @@ CPFTH:  MOV     A,M
         ORA     C
         JNZ     CPFTH
         JMP     BOTRAM
+
+; Run ISIS from ROM #3 (0x6000)
+; Copy it to E800H
+ISIS:   LXI     H, ISROM                ; H = src (ISIS ROM)
+        LXI     D, 0E800H               ; D = dst (ISIS bootloader address)
+        LXI     B, 1800H                ; B = count (length of ISIS ROM)
+CPIS:   MOV     A,M
+        STAX    D
+        INX     H
+        INX     D
+        DCX     B
+        MOV     A,B                     ; are we done yet?
+        ORA     C
+        JNZ     CPIS
+        LXI     H, ROMOFF               ; H = src (romoff)
+        LXI     D, 0E000H               ; D = dest (0xE000, good place in RAM)
+        LXI     B, (ROMOF1-ROMOFF)      ; B = length of ROMOFF routine
+CPRO:   MOV     A,M
+        STAX    D
+        INX     H
+        INX     D
+        DCX     B
+        MOV     A,B             ; are we done yet?
+        ORA     C
+        JNZ     CPRO
+        JMP     0E000H
+
+; ROMOFF routine, put this in RAM because the ROM disappears part way through
+; Disable ROM and JUMP to E800
+; Install Jumper E25-E32
+; Put E6-5 into output mode
+; Set E6-5 to 0
+; Jump to E800
+
+ROMOFF: MVI     A,10010011B     ; Mode set, Port C upper is output, all others input
+        OUT     0E7H            ; 8255 control port. ROM might go away now; datasheet was unclear.
+        MVI     A,00001010B     ; Bit set, Port C-5 to 0
+        OUT     0E7H            ; If ROM didn't go away before, it'll go away now.
+        JMP     0E800H
+ROMOF1:
 
 ;
 ;*********************************************************
@@ -2851,6 +2900,50 @@ PIN:    MVI     A,0DBH          ;In instruction
         CALL    THXB            ;Print hex value
         CALL    CRLF
         JMP     RESET
+
+;*********************************************************
+; DECHO
+;
+; Test IOC Slave processor by sending an 8-bit value. IOC will
+; negate the value and return it.
+;
+
+CDECHO  EQU     07H             ; DATA ECHO TEST COMMAND
+OBF     EQU     00000001B       ; SLAVE OUTPUT BUFFER IS FULL
+IBF     EQU     00000010B       ; SLAVE INPUT BUFFER IS FULL
+F0      EQU     00000100B       ; FLAG 0 - SLAVE IS BUSY, MASTER IS LOCKED OUT
+IOCI    EQU     0C0H            ; I/O CONTROLLER INPUT DATA (FROM DBB) PORT
+IOCO    EQU     0C0H            ; I/O CONTROLLER OUTPUT DATA (TO DBB) PORT
+IOCS    EQU     0C1H            ; I/O CONTROLLER INPUT DBB STATUS PORT
+IOCC    EQU     0C1H            ; I/O CONTROLLER OUTPUT CONTROL COMMAND PORT
+
+DECHO:  LXI     H,M77           ;Print "VALUE:"
+        CALL    MSG
+        CALL    SPCBY
+        MOV     B,A             ;save value
+        CALL    CRLF
+        CALL    WIDLE           ;wait for slave idle
+        MVI     A,CDECHO
+        OUT     IOCC
+        CALL    WIDLE
+        MOV     A,B             ;restore value
+        OUT     IOCO
+        CALL    WRDY
+        IN      IOCI
+        CALL    THXB
+        CALL    CRLF
+        JMP     RESET
+
+WIDLE:  IN      IOCS            ; INPUT DBB STATUS
+        ANI     F0 OR IBF OR OBF; TEST FOR SLAVE PROCESSOR IDLE
+        JNZ     WIDLE           ; LOOP UNTIL IT IS IDLE
+        RET
+
+WRDY:   IN      IOCS            ; INPUT DBB STATUS
+        ANI     IBF OR OBF OR F0; MASK OFF STATUS FLAGS
+        CPI     OBF             ; TEST FOR SLAVE DONE; SOMETHING FOR THE MASTER
+        JNZ     WRDY            ; IF NOT, CONTINUE TO LOOP
+        RET
 
 ;
 ;*********************************************************
@@ -3502,12 +3595,14 @@ M71:    .DB      CR,LF,"ADDRESS XXXX"
         .DB      CR,LF,"ZAP XXXX YYY",'Y'+80H
 M72:    .DB      "ASI",'C'+80H
 M73:    .DB      "-FORT",'H'+80H
-M74:    .DB      "NEXT TEST PAS",'S'+80H
+M74:    .DB      '.'+80H
 M75:    .DB      "-BURN TES",'T'+80H
 M76:    .DB      " POR",'T'+80H
 M77:    .DB      " VALU",'E'+80H
 M78:    .DB      "U",'T'+80H
 M79:    .DB      'N'+80H
+M80:    .DB      "-DECH",'O'+80H
+M81:    .DB      "-ISI",'S'+80H
 ;
 PSWMG:  .DB      "PS",'W'+80H
 ;
