@@ -21,12 +21,13 @@
 ;*                                                       *
 ;*               MEMORY Addressing                       *
 ;*                                                       *
-;*    ROM 0000H - 07FFH                                  *
-;*    ROM 0800H - 0FFFH                                  *
-;*    ROM 1000H - 17FFH  unused                          *
-;*    ROM 1800H - 1FFFH  unused                          *
+;*     ROM 0000H - 07FFH                                 *
+;*     ROM 0800H - 0FFFH                                 *
+;*     ROM 1000H - 17FFH  unused                         *
+;*     ROM 1800H - 1FFFH  unused                         *
 ;*						         *
-;*    RAM E000H - FFFFH (8K)                             *
+;*     RAM E000H - F7FFH (6K)                            *
+;* ROM/RAM F800H - FFFFH (2K - ISIS Mon ROM or more RAM) *
 ;*                                                       *
 ;*********************************************************
 ;*********************************************************
@@ -35,7 +36,7 @@
 ;*                                                       *
 ;*********************************************************
 ;
-CORE    .EQU     0FFFFH          ;TOP OF UTILITY RAM
+CORE    .EQU     0F7FFH          ;TOP OF UTILITY RAM
 ROM     .EQU     0000H           ;START OF ROM
 ;
 PCLOC   .EQU     CORE-2          ;
@@ -95,6 +96,9 @@ MODE	.EQU 		04EH		;MODE SET FOR USART 1 stop no parity 8 bit 16x clock
 CMD		.EQU		036H 		;INITIALIZATION
 RESURT 	.EQU 		037H		;RESET ERROR AND SET DTR. 
 RSTUST 	.EQU 		040H		;USART MODE RESET COMMAND 
+
+DEBUG   .EQU            0B0H            ;DEBUGGING MULTIMODULE - LEFT DIGIT
+DEBUG2  .EQU            0B1H            ;DEBUGGING MULTIMODULE - MIDDLE DIGIT
 
 ;*********************************************************
 ;*                                                       *
@@ -167,7 +171,18 @@ RSTUST 	.EQU 		040H		;USART MODE RESET COMMAND
 ; INITIALIZE EVERYTHING
 ;
 BEGIN:
+
+;debug stuff
+
+;                        MVI     A,01H                   ; PROOF OF LIFE
+;                        OUT     DEBUG
+;                        MVI     A,02H                   ; QUICK RAM CHECK
+;                        STA     0F7FFH
+;                        LDA     0F7FFH
+;                        OUT     DEBUG
+
 ;set up timer for baud rate clock generator
+
 			MVI 	A,C2M3			;INITIALIZE COUNTER #2 FOR BAUD RATE 
 			OUT 	TMCP			;OUTPUT COMMAND WORD TO INTERVAL TIMER 
 			LXI 	H,B9600			;LOAD BAUD RATE FACTOR 
@@ -176,17 +191,24 @@ BEGIN:
 			MOV 	A,H				;MOST SIGNIFICANT WORD FOR CTR2 
 			OUT 	CTR2			;OUTPUT WORD TO CTR2
 ;set up UART
-			MVI		A,00			;USART SET UP MODE 
-			OUT		CNCTL			;OUTPUT MODE 
-			OUT		CNCTL			;OUTPUT MODE 
-			OUT		CNCTL			;OUTPUT MODE 
-			MVI		A,040H  		;USART RESET
-			OUT		CNCTL			;OUTPUT MODE 
+			MVI	A,00			;USART SET UP MODE 
+			OUT	CNCTL			;OUTPUT MODE 
+			OUT	CNCTL			;OUTPUT MODE 
+			OUT	CNCTL			;OUTPUT MODE 
+			MVI	A,040H  		;USART RESET
+			OUT	CNCTL			;OUTPUT MODE 
 			
-			MVI		A,04EH			;USART SET UP MODE. 
-			OUT		CNCTL			;OUTPUT MODE 
+			MVI	A,04EH			;USART SET UP MODE. 
+			OUT	CNCTL			;OUTPUT MODE 
 			MVI 	A,037H			;
 			OUT 	CNCTL			;OUTPUT COMMAND WORD TO USART 
+
+;debug stuff after serial port initialized
+;                        MVI     A,03H
+;                        OUT     DEBUG2
+;                        MVI     A,'A'
+;                        OUT     CNOUT
+
 ;
 ; LOCATE THE STACK AT THE TOP OF SPECIFIED RAM MEMORY, SET
 ; THE USER REGISTER SAVE AREA AND EXIT TEMPLATE                                                                                                                                                                                                                                                                                 
@@ -2308,9 +2330,25 @@ CPFTH:  MOV     A,M
         JNZ     CPFTH
         JMP     BOTRAM
 
-; Run ISIS from ROM #3 (0x6000)
+; Boot ISIS. There are two ways to do this: 1) ISIS Booter is in
+; ROM at E800, and 2) ISIS Booter is in ROM at 6000, and we copy it to RAM
+; at E800. It depends on the configuration of the Multibus CPU board, and
+; whether we have the MEM-ISIS PLD installed on the ramboard.
+
+ISIS:   MVI     A,01H                   ; Try to write something to E800H
+        STA     0E800H
+        LDA     0E800H
+        CPI     0C3H                    ; Is the ISIS ROM there?
+        JNZ     RAMIS                   ; Nope. Proceed with ISIS in RAM
+        LXI     H,M83                   ; RUNNING ISIS FROM ROM MESSAGE
+        CALL    MSG        
+        JMP     0E800H
+
+; Copy ISIS booter from ROM #3 (0x6000) to E800H and run it
 ; Copy it to E800H
-ISIS:   LXI     H, ISROM                ; H = src (ISIS ROM)
+RAMIS:  LXI     H,M82                   ;COPYING ISIS MESSAGE
+        CALL    MSG
+        LXI     H, ISROM                ; H = src (ISIS ROM)
         LXI     D, 0E800H               ; D = dst (ISIS bootloader address)
         LXI     B, 1800H                ; B = count (length of ISIS ROM)
 CPIS:   MOV     A,M
@@ -3603,6 +3641,8 @@ M78:    .DB      "U",'T'+80H
 M79:    .DB      'N'+80H
 M80:    .DB      "-DECH",'O'+80H
 M81:    .DB      "-ISI",'S'+80H
+M82:    .DB      CR,LF,"COPYING ISIS BOOTER FROM ROM TO RAM",CR,LF+80H
+M83:    .DB      CR,LF,"JUMPING TO ISIS BOOTER IN ROM",CR,LF+80H
 ;
 PSWMG:  .DB      "PS",'W'+80H
 ;
